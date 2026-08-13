@@ -1,0 +1,4 @@
+interface:
+  display_name: "SEO Output Test Contracts"
+  short_description: "Build project-specific SEO output gates"
+  default_prompt: "Use $seo-output-test-contracts to create clean project-specific SEO and JSON-LD output tests for this codebase."

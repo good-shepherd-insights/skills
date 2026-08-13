@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create SEO Fields"
+  short_description: "Build Meta, OG, and JSON-LD fields"
+  default_prompt: "Use $create-seo-fields to design durable Meta, Open Graph, and JSON-LD fields for this content type."

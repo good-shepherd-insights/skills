@@ -1,0 +1,4 @@
+interface:
+  display_name: "Astro SEO Infra Readiness"
+  short_description: "Verify Astro SEO output readiness"
+  default_prompt: "Use $astro-seo-infra-readiness to audit this Astro site for frontend SEO infrastructure readiness using astro-seo metadata, schema-dts JSON-LD builders, centralized JSON-LD serialization, sitemap/robots checks, and rendered dist-output tests."

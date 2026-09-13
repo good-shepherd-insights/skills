@@ -1,0 +1,4 @@
+interface:
+  display_name: "Planning Router"
+  short_description: "Choose the right code-planning workflow"
+  default_prompt: "Use $planning-router to assess this repository task and select the right planning workflow with evidence-backed reasoning."

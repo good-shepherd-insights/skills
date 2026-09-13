@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sanity Content Migration Planning"
+  short_description: "Scope Sanity content migrations tightly"
+  default_prompt: "Use $sanity-content-migration-planning to plan a scoped Sanity content migration without broadening into global config."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Price Update"
+  short_description: "Update catalog prices and dependent modifiers atomically."
+  default_prompt: "Use $price-update to update the requested product price in one verified pass."

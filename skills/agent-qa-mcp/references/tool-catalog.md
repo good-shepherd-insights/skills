@@ -1,0 +1,35 @@
+# Full tool catalog — verified live 2026-09-14 from http://127.0.0.1:3471/mcp (tools/list)
+
+- agent_qa_discover: Return structured metadata for agent-qa MCP tools, resources, prompts, and current rollout scope.
+- agent_qa_get_config: Read the active agent-qa config and return a masked raw config plus targets/devices/providers summary.
+- agent_qa_schema_reference: Return structured references for config, test YAML, suite YAML, hooks, or canonical IDs.
+- agent_qa_validate_definition: Validate config/test/suite/hooks objects with the same core schemas agent-qa uses.
+- agent_qa_generate_id: Generate a canonical id-agent backed ID for a test, suite, hook, run, or observation.
+- agent_qa_validate_id: Validate canonical id-agent backed IDs and return the expected contract.
+- agent_qa_list_tests: List tests through the dashboard API using dashboard workspace discovery.
+- agent_qa_read_test: Read a test by canonical test ID through the dashboard API.
+- agent_qa_validate_test: Validate test YAML through the dashboard test-file manager.
+- agent_qa_create_test: Create a test file through the dashboard workspace-safe file manager.
+- agent_qa_update_test: Update a test by canonical test ID through the dashboard API.
+- agent_qa_delete_test: Delete a test by canonical test ID through the dashboard API.
+- agent_qa_list_suites: List suites through the dashboard API using dashboard workspace discovery.
+- agent_qa_read_suite: Read a suite by canonical suite ID through the dashboard API.
+- agent_qa_validate_suite: Validate suite YAML through the dashboard suite-file manager.
+- agent_qa_create_suite: Create a suite file through the dashboard workspace-safe suite manager.
+- agent_qa_update_suite: Update a suite by canonical suite ID through the dashboard API.
+- agent_qa_delete_suite: Delete a suite through the dashboard API. Prefer suiteId; path is supported for the dashboard delete route.
+- agent_qa_list_hooks: List hooks through the dashboard hook registry API.
+- agent_qa_read_hook: Read hook metadata and source by canonical hook ID.
+- agent_qa_create_hook: Create a hook through the dashboard hook registry API.
+- agent_qa_update_hook: Update a hook through the dashboard hook registry API.
+- agent_qa_delete_hook: Delete a hook through the dashboard hook registry API.
+- agent_qa_run_hook: Run a hook through the dashboard hook execution API.
+- agent_qa_enqueue_test_run: Queue a test run through the dashboard run trigger API and return the canonical run ID.
+- agent_qa_enqueue_suite_run: Queue a suite run through the dashboard run trigger API and return parent run context.
+- agent_qa_get_run: Get run detail, steps, attempts, and suite child context through the dashboard API.
+- agent_qa_get_run_steps: Get run steps through the dashboard API.
+- agent_qa_get_run_logs: Get run log rows through the dashboard API.
+- agent_qa_get_run_execution_logs: Get structured execution logs through the dashboard API.
+- agent_qa_get_run_artifact: Get sanitized run artifact bundle, child artifacts, and missing artifact sections.
+- agent_qa_cancel_run: Cancel a pending or running run through the dashboard queue.
+- agent_qa_classify_failure: Classify a failed run using dashboard run detail, artifacts, logs, execution logs, and recent related runs.

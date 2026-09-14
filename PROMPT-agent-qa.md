@@ -1,49 +1,93 @@
-# PROMPT — Use the GSI agent-qa MCP (paste for any coding agent)
+# agent-qa — install, understand, use
 
-You have access to a shared QA runtime for Good Shepherd Insights web projects. Use it to verify UI changes, run sizing/accessibility passes, and read real run evidence. Everything below is verified live.
+agent-qa is a self-improving QA agent by Vostride (github.com/vostride/agent-qa). You write tests in plain-English YAML files. At runtime an LLM looks at real screenshots of your app and drives a real browser (Chromium/Playwright) to execute each step and check each expected outcome. Every run records evidence: per-step screenshots, the DOM, the agent's reasoning, WCAG violations, console/network logs, and a video. After runs, it stores what it learned about your app in a memory directory, so future runs are faster and more accurate. No test scripts are generated or compiled — the YAML is the test.
 
-## 1. Fetch the skill (do this first)
+Good Shepherd Insights runs one shared installation for all web projects at /home/dev/Projects/qa-harness. Multiple projects are targets inside it (cupscakes, wrightway, wrightway-live). The skill explaining the MCP interface in depth is in this repo at skills/agent-qa-mcp/SKILL.md.
 
-Fetch the canonical skill and load it before acting:
+## What actually happens when a test runs
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/good-shepherd-insights/skills/main/skills/agent-qa-mcp/SKILL.md -o /tmp/SKILL-agent-qa-mcp.md
-```
+1. The planner reads your test YAML and the app's current page (screenshot + DOM).
+2. For each step it decides concrete actions (click, scroll, assert), takes them, and compares observed outcomes against the step's expected outcome.
+3. A rule-based WCAG scanner (axe) runs after each step and records violations with exact CSS selectors — independently of the LLM's judgment.
+4. Results, screenshots, video, logs, and violations are stored in .agent-qa/ and visible via dashboard or MCP.
 
-Read it fully. Its references (same directory on GitHub): `references/tool-catalog.md` (all 33 MCP tools with server-provided descriptions) and `references/test-yaml-shape.md` (canonical test YAML + rules). Do not proceed without reading the SKILL.md.
-
-## 2. Install the runtime (only if not already present)
-
-The harness lives at /home/dev/Projects/qa-harness. If it exists, use it — never reinstall over it.
+## Install (fresh machine)
 
 ```bash
-git clone https://github.com/good-shepherd-insights/skills.git /tmp/skills
-# agent-qa itself (if missing):
-cd /home/dev/Projects/qa-harness && npm install -D agent-qa@0.1.21
+# 1. Node 24+ (agent-qa fails on older node)
+curl -fsSL https://nodejs.org/dist/v24.10.0/node-v24.10.0-linux-x64.tar.xz | tar -xJ -C ~/.local --strip-components=1 --one-top-level=node24
+export PATH=~/.local/node24/bin:$PATH
+
+# 2. Create the workspace and install agent-qa
+mkdir -p ~/Projects/qa-harness && cd ~/Projects/qa-harness
+npm init -y && npm install -D agent-qa@0.1.21
+npx agent-qa init --platform web --dir .
+
+# 3. Browser: on Ubuntu 26.04 install-browsers fails; reuse any existing
+#    ~/.cache/ms-playwright/chromium-*/ build by symlinking it to the version
+#    agent-qa's playwright-core expects (check: node -e "require('playwright-core').chromium.executablePath()")
+
+# 4. LLM credential: agent-qa needs a vision-capable model. Store the key OUTSIDE the repo:
+#    ~/.agent-qa/auth.json, chmod 600. Configure the LLM in agent-qa.config.yaml (registry.llms).
+#    Example config used here: openai-compatible, google/gemini-2.5-flash via the Kilo gateway.
+
+# 5. Verify everything
+npx agent-qa doctor        # all checks must pass
+npx agent-qa auth test     # real model call, proves the LLM works
 ```
 
-Environment requirements (verified): Node >= 24 (export PATH=~/.local/node24/bin:$PATH — the box default node is 22 and FAILS); Chromium via symlinked ~/.cache/ms-playwright/chromium-1243 (agent-qa install-browsers fails on ubuntu26.04 — use the existing symlink); LLM credential in ~/.agent-qa/auth.json (never put keys in repo files, shell args, or logs).
+## Configure (agent-qa.config.yaml)
 
-Verify readiness: `cd /home/dev/Projects/qa-harness && npx agent-qa doctor` — all checks must pass before running tests.
+Three things matter: which LLM (registry.llms), which apps to test (registry.targets), and budgets (use.planner.maxSubActions — long pages need 25+, the default 10 causes false failures when a step must scroll a lot).
 
-## 3. Use the MCP (preferred) or CLI
+```yaml
+registry:
+  llms:
+    - name: qa
+      provider: openai-compatible
+      model: google/gemini-2.5-flash
+      baseURL: https://api.kilo.ai/api/gateway/v1
+  targets:
+    my-site:
+      platform: web
+      url: https://mysite.com
+use:
+  planner:
+    maxSubActions: 25
+  llm: qa
+```
 
-- MCP server: http://127.0.0.1:3471/mcp — NO auth, no handshake required. JSON-RPC 2.0 over HTTP POST. Responses are SSE-framed; use the exact parse pattern in the skill (naive SSE parsing fails on 1.2MB step payloads).
-- Start with `agent_qa_discover`, then `agent_qa_get_config` for targets.
-- Workflow: get_config → author/validate test (agent_qa_validate_test) → agent_qa_enqueue_test_run → poll agent_qa_get_run → agent_qa_get_run_artifact → on FAIL, agent_qa_classify_failure.
-- CLI equivalent: cd /home/dev/Projects/qa-harness && npx agent-qa run tests/<file>.yaml --headless --junit-output .agent-qa/<name>.junit.xml
-- Dashboard (human viewing): http://192.168.1.174:3470
+## Use
 
-## 4. Rules that are not negotiable
+Write a test (tests/<name>.yaml):
 
-- Validate every test before running. Never weaken an assertion to force a pass.
-- ALWAYS read accessibilityViolations from agent_qa_get_run_steps even when the test PASSES — failOnViolation is false and serious WCAG violations have been recorded on passing runs (verified: 10 color-contrast violations on wrightway-live).
-- agent-qa has NO Figma integration and NO pixel-diff. Design intent must be encoded as explicit assertions (exact px/colors via DOM), not left to the model's eye.
-- Targets live in agent-qa.config.yaml (cupscakes, wrightway, wrightway-live, example-web). Reuse them; add new ones only when needed.
-- Secrets stay in ~/.agent-qa/. Runtime artifacts (.agent-qa/) are gitignored — never commit them.
-- Distinguish app bugs from test authoring/environment errors before reporting. Report app bugs with evidence, do not fix without authorization.
-- A skipped, interrupted, or unexecuted test is not a pass. Do not claim success without a run ID and terminal status.
+```yaml
+test-id: t_<canonical-id>          # never invent: generate via MCP tool agent_qa_generate_id
+name: Homepage loads and is accessible
+target: my-site
+steps:
+  - Verify the page loads with visible navigation and main content
+  - Verify there is no horizontal overflow at desktop width
+  - Verify every image has alt text
+```
 
-## 5. Reporting
+Run and check:
 
-Report: run ID, verdict, per-step results, accessibility violations with selectors, evidence locations (.agent-qa/artifacts/<runId>/), and the exact rerun command.
+```bash
+npx agent-qa validate tests/homepage.yaml                    # schema check — always do this first
+npx agent-qa run tests/homepage.yaml --headless --junit-output .agent-qa/homepage.junit.xml
+```
+
+Read results: verdict, per-step pass/fail, screenshots and video in .agent-qa/artifacts/<run-id>/. ALWAYS also read the axe violations per step (JUnit or MCP get_run_steps): a test can PASS while serious WCAG violations were recorded — failOnViolation is false by default. Never report "no accessibility issues" without checking that data.
+
+## MCP (for agents driving QA programmatically)
+
+The MCP server (http://127.0.0.1:3471/mcp, no auth, JSON-RPC 2.0 over HTTP POST) exposes 33 tools covering: discover/config/schema, full CRUD on tests/suites/hooks, enqueue runs, read runs/steps/logs/artifacts, cancel, and classify_failure (sorts app bug vs test authoring vs environment). Full catalog: skills/agent-qa-mcp/references/tool-catalog.md. Transport details and a working parse pattern for the large SSE responses: skills/agent-qa-mcp/SKILL.md.
+
+## Rules
+
+- Validate before every run. Never weaken an assertion to force a pass.
+- Check accessibilityViolations on every run, pass or fail.
+- No Figma/pixel-diff capability: design conformance must be encoded as explicit assertions (exact px/colors read from the DOM), not left to the model's judgment.
+- Secrets live in ~/.agent-qa/ (never in the repo); .agent-qa/ is gitignored.
+- Report run ID, verdict, violations with selectors, and the exact rerun command. A skipped or interrupted run is not a pass.

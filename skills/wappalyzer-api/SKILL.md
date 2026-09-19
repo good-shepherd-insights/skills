@@ -14,26 +14,51 @@ Public: `https://wappalyzer.goodshepherdinsights.com` (tunnel — verify reachab
 
 ## Auth
 
-All `/v1/*` routes require the shared bearer token:
+All `/v1/*` routes require the shared bearer token. The public API is a public service — this token is the public access key:
 
 ```http
-Authorization: Bearer <WAPP_API_TOKEN>
+Authorization: Bearer devtoken
 ```
 
-Read the token from the env var `WAPP_API_TOKEN` on the box — never hardcode or commit it. `/healthz`, `/readyz`, `/v1/version` need no token.
+`/healthz`, `/readyz`, `/v1/version` need no token.
 
 ## Call
 
 ```bash
 curl -sS -m 30 http://127.0.0.1:18081/v1/fingerprint \
   -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $WAPP_API_TOKEN" \
+  -H 'Authorization: Bearer devtoken' \
   -d '{"url":"https://example.com","include":["apps","cats","info"]}'
 ```
 
 `url` is required. `include` is optional; valid values `apps` (default), `cats`, `info`.
 
-Response: `status_code` (upstream HTTP status — check it before trusting results), `duration_ms`, `final_url`, and `tech` with only the requested sections: `apps` (sorted names), `cats` (name → category IDs), `info` (description, website, CPE, icon, categories).
+Response schema (only sections listed in `include` are populated; rest omitted):
+
+```json
+{
+  "url": "https://example.com/",
+  "final_url": "https://example.com/",
+  "status_code": 200,
+  "duration_ms": 40,
+  "tech": {
+    "apps": ["Cloudflare", "React"],
+    "cats": {"Cloudflare": [31], "React": [12]},
+    "info": {
+      "React": {
+        "description": "React is an open-source JavaScript library...",
+        "website": "https://reactjs.org",
+        "cpe": "cpe:2.3:a:facebook:react:*:*:*:*:*:*:*:*",
+        "icon": "React.svg",
+        "categories": ["JavaScript frameworks"]
+      }
+    }
+  }
+}
+```
+
+- `url` — as sent; `final_url` — after redirects; `status_code` — upstream HTTP status; `duration_ms` — fetch+fingerprint time.
+- `tech.apps` — sorted string list. `tech.cats` — name → Wappalyzer category IDs. `tech.info` — name → metadata object (empty fields omitted).
 
 ## Errors
 

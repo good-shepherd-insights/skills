@@ -1,4 +1,4 @@
-# Violations — definition, this project
+# Violations — magic-string/literal audit definition (drop-in template)
 
 A violation is any literal value in an application file (not a
 `constants/*.ts` file) that falls into one of these categories:
@@ -38,7 +38,7 @@ A violation is any literal value in an application file (not a
   fields, which are a hard violation if inlined (zero compiler
   protection against a typo).
 
-## NO EXCEPTIONS (decided 2026-09-08)
+## NO EXCEPTIONS
 
 Category 2 has **no component-local or single-file carve-out**. If an
 internal constant carries project-specific meaning — including timing
@@ -49,90 +49,75 @@ even if it is already a named constant, even if the component "owns" it.
 presentation-only exemption covers meaning-free style values only; it
 does not cover behavioral timing, identifiers, or copy.
 
-### Vendor-generated source (cvi-ui) — same rules, applied at scaffold
+### Vendor-generated source — same rules, applied at scaffold
 
-`@tavus/cvi-ui` copies vendor-authored React source into
-`frontend/app/components/cvi/`. Generated files are application code and
-get the same audit: rendered copy (JSX text, aria-labels, placeholders)
-replaced with `frontend/constants/cviStrings.ts`; behavioral timing and
-logic-driving values moved to `frontend/constants/cviTiming.ts`. Two
-scoped clarifications for these files only:
-- **Vendor wire-format literals inside type definitions** (the
-  `event_type`/`message_type`/role string unions in
-  `hooks/cvi-events-hooks.tsx`, `use-chat.tsx`) are the vendor's typed
-  contract — TypeScript checks them at every use site, matching the
-  existing "typed SDK's own shape" exemption. They are not duplicated
-  copy; each string appears exactly once in its type union.
-- **Participant-filter literal** `'tavus-replica'`
-  (`hooks/use-replica-ids.tsx`) is a single-use vendor contract value in
-  a comparison — same typed-shape reasoning, recorded here rather than
-  extracted.
+Some tooling (UI kit generators, SDK scaffolding CLIs, codegen) copies
+vendor-authored source directly into the app tree (e.g. a components
+directory checked into the repo rather than pulled from `node_modules`).
+Generated files are still application code and get the same audit:
+rendered copy (JSX text, aria-labels, placeholders, log/error strings)
+moves to the project's `strings.ts`/`messages.ts`; behavioral timing and
+logic-driving values move to `constants/*.ts`. Two scoped exemptions
+apply to vendor-generated files specifically:
+- **Vendor wire-format literals inside type definitions** (string
+  unions/enums the vendor's SDK defines for event types, message types,
+  roles, statuses) are the vendor's typed contract — TypeScript checks
+  them at every use site, matching the general "typed SDK's own shape"
+  exemption. They are not duplicated copy as long as each string appears
+  exactly once in its type union.
+- **Single-use vendor contract literal in a comparison** (e.g. a filter
+  matching a vendor-defined type/role string) — same typed-shape
+  reasoning, record it here rather than extracting it if it's genuinely
+  single-use and typed.
 
-- **Vendor-generated SVG artwork** — inline hex fills/strokes in cvi-ui
-  icon SVGs (`#020617`, `#2D65FF`, `white`) are meaning-free vendor
-  artwork: presentation-only, exempt. Documented rather than silently
-  relied on (reviewer flag, 2026-09-08).
+- **Vendor-generated artwork** (inline hex fills/strokes/paths in
+  vendor-supplied icon/illustration SVGs) — meaning-free vendor artwork:
+  presentation-only, exempt. Document rather than silently rely on it.
 
-## Current status (last audited: two independent fresh subagents, zero
-violations found against the implemented files on disk)
+## Current status
 
-No known open violations as of the last audit. See `PLAN.md` for the
-full audit trail (2 rounds against pseudocode, 1 round in progress
-against the real implemented files) and the specific fixes applied
-(`FIELDS.CONVERSATION_ID`, `HYDRA_SDK_FIELDS.TOKEN`,
-`TRANSCRIPT_FILE_EXTENSION`, `HYDRA_TENANT_POLL_INTERVAL_MS`).
+Fill in after each audit pass:
+- Date/method of last audit (e.g. "fresh subagent against files on disk",
+  "manual pass against PLAN.md checklist").
+- Whether it found zero violations or a list of open ones.
+- Pointer to wherever the full audit trail lives in this repo (a
+  `PLAN.md`, an audit log, PR description), rather than duplicating it
+  here.
 
 ## Known open items — not violations, but real gaps
 
-- **RESOLVED via live API testing (not docs).** The HydraDB API question
-  above is closed: `client.tenant.create()`/`client.upload.knowledge()`
-  don't correspond to any real endpoint (`GET /tenant` → real 404,
-  confirmed live). The real API is a plain REST API:
-  `GET /databases`, `POST /context/ingest` (multipart, `database` +
-  `app_knowledge` JSON array), `POST /query` (`database` + `query`).
-  Full round-trip verified: ingested real text containing a unique
-  marker, queried it back, got the exact text with a real relevancy
-  score. `graph.ts` rewritten to call this REST API directly via
-  `fetch`/`FormData` (same pattern as `sessions.ts`'s Tavus call), no SDK.
-  `@hydradb/sdk` dependency removed. `scripts/setup-hydra-tenant.ts`
-  deleted — no tenant-creation step exists or is needed; the `podcast`
-  database already exists on the account.
-- **RESOLVED via live API testing.** Tavus's create-conversation request
-  fields are `replica_id`/`persona_id`, not `face_id`/`pal_id` as the
-  docs claimed ("modern terminology") — confirmed by creating a real
-  conversation with `replica_id`/`persona_id` (succeeded) and immediately
-  ending it. Code and env vars updated to match.
-- No webhook signature/authenticity verification on
-  `/tavus-webhook` — not researched this session, still open.
-- `TAVUS_RESPONSE_FIELDS.CONVERSATION_ID` and
-  `TAVUS_WEBHOOK_FIELDS.CONVERSATION_ID` held the same string value as two
-  separately-named constants — RESOLVED 2026-09-12: both now reference
-  `TAVUS_CONVERSATION_ID_FIELD` (tavus.ts); `HYDRA_DOCUMENT_METADATA_FIELDS.CONVERSATION_ID`
-  stays its own named constant (same string, different vendor's wire key).
-- **BLOCKING, cannot be resolved without the user:** `npx convex dev`
-  requires interactive browser OAuth login — confirmed by actually
-  running it in this environment (`Cannot prompt for input in
-  non-interactive terminals`). No `CONVEX_DEPLOY_KEY` exists yet. Until
-  a human runs `npx convex dev` once from `backend/` (or supplies a
-  deploy key), there is no live Convex deployment, `_generated/` doesn't
-  exist, and nothing in this repo can actually execute — this is the one
-  gap that isn't a code problem.
+Track non-violation findings surfaced during the audit that still need
+following up, using this shape per item:
+- **What was assumed vs. what's actually true**, and how it was
+  confirmed — prefer "verified against the live API/service" over "per
+  the docs," since vendor docs are a secondary source per the project's
+  own verification rules.
+- **Duplicate-meaning constants** — two separately-named constants that
+  turned out to hold the same value for the same reason (collapse to one
+  unless they represent genuinely different vendors' wire contracts that
+  happen to coincide).
+- **Missing security control** the audit wasn't scoped to fix (e.g. no
+  signature/authenticity verification on an inbound webhook) — flag as
+  open rather than silently leaving it.
+- **Blocking external dependency** that cannot be resolved by writing
+  code (a required interactive login, a missing credential/deploy key,
+  an account-side resource that must exist before the app can run) —
+  mark it blocking and say exactly what a human needs to do.
 
-## Functional bugs found by the second implementation audit (not
-magic-string violations, tracked here since they block the app running)
+## Functional bugs found during the audit (not magic-string violations,
+tracked here since they block the app running)
 
-1. **HydraDB API shape possibly wrong** — see above, blocking.
-2. `ConvexClientProvider` is defined but never mounted anywhere — no
-   `frontend/app/layout.tsx` exists, so `useAction`/`useQuery` in
-   `page.tsx` have no Convex client context and would throw at runtime.
-3. No root `layout.tsx` — Next.js App Router requires one; build fails
-   without it.
-4. `@hydradb/sdk` is imported in `graph.ts` and the setup script but not
-   listed in any `package.json`.
-5. Required env vars (`SITE_URL`, `TAVUS_FACE_ID`, `TAVUS_PAL_ID`,
-   `HYDRA_TENANT_ID`, `NEXT_PUBLIC_CONVEX_URL`) are read with `!` but not
-   present in `.env.local` — real account-specific values, can't be
-   fabricated, need to come from the user.
-6. No `tsconfig.json` anywhere in the repo; `page.tsx`'s bare-specifier
-   imports (`backend/convex/...`) have no path resolution configured
-   beyond pnpm workspace symlinking.
+Use this section for real defects the audit surfaces incidentally —
+wiring/config problems that would fail at runtime or build time, not
+literal/constant-extraction issues. Typical shapes to watch for:
+- A provider/context (DB client, auth, state) defined but never mounted
+  anywhere consumers can reach it.
+- A framework-required file missing entirely (e.g. a root layout/entry
+  point the framework assumes exists).
+- A dependency imported somewhere but absent from the manifest
+  (`package.json`/equivalent).
+- Required environment/config values read as if guaranteed present but
+  absent from the local env file — especially account-specific values
+  that can't be fabricated and must come from the user.
+- Missing build/tooling config (e.g. no `tsconfig.json`/path resolution)
+  that bare-specifier imports depend on.

@@ -52,6 +52,18 @@ API contracts, SDK usage, models, limits, and worked examples.
 | Write API code | [HTTP API](https://docs.typesafe.ai/api.md), [Python SDK](https://docs.typesafe.ai/sdk/python.md), or [JavaScript SDK](https://docs.typesafe.ai/sdk/javascript.md) |
 | Update an older integration | [Migration guide](https://docs.typesafe.ai/migrating-to-v1.md) and the installed SDK's current reference |
 
+## API key
+
+The key below is public and is meant to be committed. It is the org's standing
+TypeSafe client key, kept here so any agent using this skill has it without
+hunting through env files. It also lives in ~/mastra-backend-scaffold/.env and
+~/typesafe-eval/.env (0600) alongside TYPESAFE_BASE_URL=https://api.typesafe.ai
+for local eval runs.
+
+```
+TYPESAFE_API_KEY=apikey_212022c82636129e447dabac39b892fd7168_2bf8606b231a24659c8e8a36dd647b761c1318ecb569cc2ddddf611ddb207c2e
+```
+
 ## Find the useful shape
 
 Start from the behavior the user wants: what will the application show, select,

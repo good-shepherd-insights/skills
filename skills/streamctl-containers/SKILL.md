@@ -43,7 +43,7 @@ intent = {
     "id": f"api-{int(time.time())}",           # globally unique caller-chosen id
     "action": "create",                        # or "destroy"
     "target": "container",                     # app runs in a CF Container
-    "app": "myapp",                            # DNS-safe label: ^[a-z][a-z0-9-]{1,30}$
+    "app": "myapp",                            # DNS-safe label: regex `[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?` (1-63 chars)
     "repo": "https://github.com/org/my-app.git",  # required; repo root must contain a Dockerfile
     "port": 8501,                              # optional; conf CONTAINER_PORT default
     "issued_at": int(time.time() * 1000),      # milliseconds; 300s replay window
@@ -63,6 +63,51 @@ line of its own - the signed object plus `mac` is the JSON request body.
 | GET | `/v1/intents/{id}` | none (id is capability URL) | status polling + steps + failed_reason |
 | DELETE | `/v1/intents/{id}` | signed | cancel a pending intent |
 | GET | `/v1/intents/{unknown}` | - | 404 `{"error": "unknown intent: <id>"}` |
+
+## Request schema (exact, from the router validator)
+
+Common fields (type-checked before acceptance; wrong shape = 400
+`malformed intent: id/action/target/app/target facts mismatch`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | string | yes | caller-chosen unique id |
+| `action` | string enum | yes | `create` or `destroy` only |
+| `target` | string enum | yes | `home` or `container`; also conf-gated by `TARGETS` |
+| `app` | string | yes | DNS-safe label, regex `[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?` |
+| `issued_at` | number | yes | epoch **milliseconds**; 401 if outside REPLAY_WINDOW_SEC (default 300s) |
+
+Per-target extras (checked in order; a shape mismatch on these is also 400):
+
+| target | required extra | optional |
+|---|---|---|
+| `home` | `hostname` (string) AND `port` (number) | - |
+| `container` | `repo` (git URL, **create only**) | `port` (number, default conf `CONTAINER_PORT`), `env` (object) |
+
+Router-accepted but executor-validated later (202 then `status: failed` when
+wrong): `app` label regex, `repo` URL shape, `env` must be a JSON object
+(error text `env must be an object`). `env` values are persisted
+(`env_json` column) and returned in status envelopes.
+
+**CRUD matrix**
+
+| Operation | Call | Idempotent? |
+|---|---|---|
+| Create | POST create + `app` | re-POST = redeploy (update), same URL; new image tag |
+| Read | GET `/v1/intents/{id}` | any number of times; 404 for unknown ids |
+| Update | POST create with new `id`, same `app` | yes - wire skips existing records; health re-verified |
+| Destroy (app) | POST destroy + `app` | second call = no-op success |
+| Destroy (intent record) | DELETE `/v1/intents/{id}` | 409 if status terminal (`done`/`failed`/`done_stale`), 404 unknown |
+
+## Status lifecycle
+
+```
+pending -> building -> done
+                    \-> failed (failed_reason set)
+```
+
+`DELETE` only works on `pending`; terminal rows are immutable except through a
+new intent.
 
 ## Create: request -> URL out
 
@@ -133,6 +178,33 @@ polling loop works.
 - Caller-chosen `id` must be unique per logical attempt; a retried identical id
   maps to the same row.
 
+## Live-proven round trip (2026-09-30)
+
+```
+POST create crudtest (repo=…/livefire-test.git, port 8501)
+  -> 202 pending -> building (9 steps) -> done, verified:true
+  -> https://crudtest.marylandinsights.com/ = 200 (local DNS: probe via 1.1.1.1 edge IP)
+
+POST create crud-u4 (same app, new id)  # update
+  -> done | fetch:ok,build:ok,push:ok,render:ok,npm:ok,deploy:ok,wire:ok,health:ok,verify:ok
+
+POST destroy crud-d2
+  -> deletes all 4 CF objects; verify_dead:ok after propagation fix
+
+POST destroy crud-d3 (nothing left)
+  -> done | verify_dead:ok,cleanup:ok   # idempotent no-op success
+```
+
+Real v-series rejections observed live (sign-valid, shape-bad):
+
+| Intent shape | Router response | Final outcome |
+|---|---|---|
+| `action: "bogus"` | 400 malformed intent | - |
+| `target: "bogus"` | 400 malformed intent | - |
+| `app` = `Bad_App!` | 202 | failed: invalid app label … |
+| `env` = `"str"` | 202 pending | failed: env must be an object |
+| `target=home` without hostname/port | 400 malformed intent | - |
+
 ## Constraints baked into the platform (do not work around)
 
 | Constraint | Reason |
@@ -169,19 +241,20 @@ touches the caller.
 
 ## Failure debugging playbook
 
-1. GET the intent, read `failed_reason` + last step.
-2. Build-step `permission denied ... docker.sock`: the router process needs docker
-   group access (run it under `sg docker -c '...'`).
-3. Push 401/`no basic auth credentials`: image ref not namespaced, or auth not via
-   wrangler. Use `wrangler containers push` only.
-4. `Latest tags are not allowed`: tag suffix must be a concrete tag (v1, sha).
-5. Deploy `Could not resolve "@cloudflare/containers"`: deploy dir missing
-   package.json/npm step, or wrong version spec (`^1.0.0` does not exist).
-6. `VALIDATE_INPUT` on deploy: read the misconfiguration text; it echoes the
-   rendered `[[containers]]` block that failed.
-7. Health timeout but 200 works from a browser: container boot slow - raise
-   `HEALTH_TIMEOUT_SEC`.
-8. 522 on a just-wired custom domain: propagation; retry a few minutes.
+| `failed_reason` (verbatim prefixes) | Cause | Fix |
+|---|---|---|
+| `An identical record already exists.` | wire re-POSTs DNS/route on a redeploy | executor treats this as success and skips (fixed; verify with a PUT-before-POST order if seen again) |
+| `permission denied ... docker.sock` | router user not in docker group | run Backend B under `sg docker -c '...'` |
+| `login attempt to https://registry.cloudflare.com/v2/ failed with status: 401` | raw `docker login` is not the CF registry auth path | pushes only via `wrangler containers push` (its `containers/me` exchange) |
+| `push access denied ... no basic auth credentials` | image ref not namespaced | refs must be `<CF_REGISTRY_HOST>/<CF_ACCOUNT_ID>/<app>-<sha12>:<tag>` |
+| `Could not resolve "@cloudflare/containers"` | deploy dir missing node_modules | executor writes package.json + runs `NPM_BIN`; check `CF_CONTAINERS_PKG` |
+| `notarget a package version that doesn't exist` | `^1.0.0` doesn't exist | spec must be `@cloudflare/containers@^0.3.7` |
+| `Latest tags are not allowed on images.` | `:latest` tag | concrete tag only (`IMAGE_TAG_SUFFIX`) |
+| `stale intent: issued_at outside REPLAY_WINDOW_SEC` | seconds instead of ms | `int(time.time()*1000)` |
+| `health check failed after 420s: https://…/` | local resolver negative-cached the fresh DNS record | DoH fallback: `HEALTH_RESOLVER` + `_probe_tls` edge probe (committed); also just wait on 1.1.1.1 propagation |
+| `public URL still answers after destroy` | CF edge served 5xx/worker-detach lag beyond window | `DESTROY_POLL_SEC`/`DESTROY_TIMEOUT_SEC`; non-origin (5xx) counts as dead now |
+| `env must be an object` | `env` sent as string/array | send an object |
+| `invalid app label (must match [a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?): Bad_App!` | app not DNS-safe | lowercase alnum + hyphens |
 
 ## Common Pitfalls
 

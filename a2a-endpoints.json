@@ -1,0 +1,270 @@
+{
+  "schema_version": "1.0",
+  "verified_date": "2026-10-02",
+  "verified_at": "2026-10-02T11:39:03-04:00",
+  "endpoints": [
+    {
+      "host": "a2a.services.goodshepherdinsights.com",
+      "discovery_card_url": "https://a2a.services.goodshepherdinsights.com/.well-known/agent-card.json",
+      "server": {
+        "name": "Alpha",
+        "description": "Alpha — system engineer and PM for this host's infrastructure: NixOS, Dokploy, authentik, Cloudflare, Terraform, Gitea.",
+        "version": "1.0.0",
+        "provider": {
+          "organization": "Hermes Agent",
+          "url": "https://a2a.services.goodshepherdinsights.com/"
+        }
+      },
+      "interfaces": [
+        {
+          "url": "https://a2a.services.goodshepherdinsights.com/",
+          "protocol_binding": "JSONRPC",
+          "protocol_version": "1.0"
+        }
+      ],
+      "authentication": {
+        "discovery_card": "public",
+        "actions": {
+          "type": "http",
+          "scheme": "bearer"
+        }
+      },
+      "known_agents": [
+        {
+          "id": null,
+          "name": "Alpha",
+          "description": "Alpha — system engineer and PM for this host's infrastructure: NixOS, Dokploy, authentik, Cloudflare, Terraform, Gitea.",
+          "capabilities": [
+            "a2a",
+            "browser",
+            "browser-cdp",
+            "browser-use",
+            "clarify",
+            "code_execution",
+            "computer_use",
+            "connections",
+            "cronjob",
+            "delegation",
+            "desktop_ui",
+            "discord",
+            "discord_admin",
+            "feishu_doc",
+            "feishu_drive",
+            "file",
+            "hermes-yuanbao",
+            "homeassistant",
+            "image_gen",
+            "kanban",
+            "memory",
+            "project",
+            "session_search",
+            "setup",
+            "skills",
+            "spotify",
+            "terminal",
+            "todo",
+            "tts",
+            "video",
+            "video_gen",
+            "vision",
+            "web",
+            "x_search"
+          ],
+          "tags": [],
+          "input_modes": [
+            "text/plain"
+          ],
+          "output_modes": [
+            "text/plain"
+          ],
+          "authentication": "bearer"
+        }
+      ]
+    },
+    {
+      "host": "a2a.server.goodshepherdinsights.com",
+      "discovery_card_url": "https://a2a.server.goodshepherdinsights.com/.well-known/agent-card.json",
+      "server": {
+        "name": "Eddify",
+        "description": "Eddify - Project Manager for Good Shepherd Insights, LLC. Plans and manages projects, delegates to expert subagents, handles email and research, and reports verified status across Telegram, Email, and Terminal.",
+        "version": "1.0.0",
+        "provider": {
+          "organization": "Hermes Agent",
+          "url": "https://a2a.server.goodshepherdinsights.com/"
+        }
+      },
+      "interfaces": [
+        {
+          "url": "https://a2a.server.goodshepherdinsights.com/",
+          "protocol_binding": "JSONRPC",
+          "protocol_version": "1.0"
+        }
+      ],
+      "authentication": {
+        "discovery_card": "public",
+        "actions": {
+          "type": "http",
+          "scheme": "bearer"
+        }
+      },
+      "known_agents": [
+        {
+          "id": null,
+          "name": "Eddify",
+          "description": "Eddify - Project Manager for Good Shepherd Insights, LLC. Plans and manages projects, delegates to expert subagents, handles email and research, and reports verified status across Telegram, Email, and Terminal.",
+          "capabilities": [
+            "a2a",
+            "browser",
+            "browser-cdp",
+            "browser-use",
+            "clarify",
+            "code_execution",
+            "computer_use",
+            "connections",
+            "cronjob",
+            "delegation",
+            "desktop_ui",
+            "discord",
+            "discord_admin",
+            "feishu_doc",
+            "feishu_drive",
+            "file",
+            "hermes-yuanbao",
+            "homeassistant",
+            "image_gen",
+            "kanban",
+            "mcp-hydradb",
+            "mcp-langfuse",
+            "memory",
+            "omh",
+            "project",
+            "session_search",
+            "setup",
+            "skills",
+            "spotify",
+            "terminal",
+            "todo",
+            "tts",
+            "video",
+            "video_gen",
+            "vision",
+            "web",
+            "x_search"
+          ],
+          "tags": [],
+          "input_modes": [
+            "text/plain"
+          ],
+          "output_modes": [
+            "text/plain"
+          ],
+          "authentication": "bearer"
+        }
+      ]
+    },
+    {
+      "host": "a2a.cloud.goodshepherdinsights.com",
+      "discovery_card_url": "https://a2a.cloud.goodshepherdinsights.com/.well-known/agent-card.json",
+      "server": {
+        "name": "fast-agent-a2a",
+        "description": "A fast-agent A2A server.",
+        "version": "0.10.41",
+        "provider": {
+          "organization": "fast-agent",
+          "url": "https://fast-agent.ai"
+        }
+      },
+      "interfaces": [
+        {
+          "url": "https://a2a.cloud.goodshepherdinsights.com/a2a/jsonrpc",
+          "protocol_binding": "JSONRPC",
+          "protocol_version": "1.0"
+        },
+        {
+          "url": "https://a2a.cloud.goodshepherdinsights.com/a2a/rest",
+          "protocol_binding": "HTTP+JSON",
+          "protocol_version": "1.0"
+        }
+      ],
+      "authentication": {
+        "discovery_card": "public",
+        "actions": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearer_format": "API_KEY"
+        }
+      },
+      "known_agents": [
+        {
+          "id": "ripgrep_spark",
+          "name": "ripgrep_spark",
+          "description": "Structured rg-first search helper with bounded commands and concise output.\nDefaults to codexspark via the $system.fast model alias.\nUse ONLY for complex multi-step searches likely requiring >1 command,\nnarrowing, ranking, grouping, or cross-file synthesis.\nDo NOT use it for one-shot shell tasks such as a single file count, simple\npath listing, existence check, or literal search; call bash directly for\nthose.\nSupports simple read-only shell post-processing (`sort`, `head`, `tail`,\n`cut`, `uniq`, `tr`, `grep`, `xargs`, `awk`, `sed`) when that is the\nshortest path to a verified answer.",
+          "capabilities": [],
+          "tags": [
+            "fast-agent",
+            "basic"
+          ],
+          "input_modes": [
+            "text/plain",
+            "application/json",
+            "application/octet-stream",
+            "image/*"
+          ],
+          "output_modes": [
+            "text/plain",
+            "application/json",
+            "application/octet-stream",
+            "image/*"
+          ],
+          "authentication": "bearer"
+        },
+        {
+          "id": "Cody",
+          "name": "Cody",
+          "description": "Engineering agent. Runs shell commands, edits files, uses harness tools, and delegates structured search to ripgrep_spark. 30-minute stream-idle. Child of Helix.",
+          "capabilities": [],
+          "tags": [
+            "fast-agent",
+            "basic"
+          ],
+          "input_modes": [
+            "text/plain",
+            "application/json",
+            "application/octet-stream",
+            "image/*"
+          ],
+          "output_modes": [
+            "text/plain",
+            "application/json",
+            "application/octet-stream",
+            "image/*"
+          ],
+          "authentication": "bearer"
+        },
+        {
+          "id": "Helix",
+          "name": "Helix",
+          "description": "Default coordination agent. Plans, delegates implementation to Cody, and reviews results. No direct shell. 1-hour stream-idle.",
+          "capabilities": [],
+          "tags": [
+            "fast-agent",
+            "basic"
+          ],
+          "input_modes": [
+            "text/plain",
+            "application/json",
+            "application/octet-stream",
+            "image/*"
+          ],
+          "output_modes": [
+            "text/plain",
+            "application/json",
+            "application/octet-stream",
+            "image/*"
+          ],
+          "authentication": "bearer"
+        }
+      ]
+    }
+  ]
+}

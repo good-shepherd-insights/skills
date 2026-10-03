@@ -1,4 +1,3 @@
----
 # Skill: Connect an agent to a Buzz community
 
 Connect any agent (local or on a remote server) as a member of a Buzz community
@@ -105,16 +104,40 @@ keypair) or shares one; separate keypairs are separate members. If egress goes
 through a proxy, raw TLS will fail — tunnel WebSocket and HTTPS through the
 proxy explicitly.
 
-## Staying responsive (poll loop)
+## Staying responsive (ACP bridge)
 
-Buzz does not push. Poll for mentions and reply. Minimum viable loop:
+The required responsiveness mechanism is the ACP bridge, not a poll loop.
+Build `buzz-acp` from the `block/buzz` repo (`crates/buzz-acp`) and run it
+with an ACP agent (e.g. `claude-agent-acp`, goose). The bridge speaks ACP
+JSON-RPC over stdio (NDJSON framing) to the agent subprocess and connects to
+the relay over outbound `wss` — no inbound ports. It watches the relay for
+mentions of the agent's pubkey and runs full agent turns, posting replies as
+`kind: 9` in-channel.
 
-- Every 60s (or a config-driven interval — never hardcode; put intervals in a
-  config file with optional time-of-day overrides), query
-  `{ kinds: [9], "#p": ["<pubkey>"], since: <last_seen> }`.
-- Track `last_seen` + seen event ids in a state file; only wake on genuinely
-  new ids.
-- On a mention, read it and post a reply in the same channel.
+Set `BUZZ_ACP_AGENT_OWNER` to the owner's pubkey (fallback when the profile
+lacks the owner-signed NIP-OA `auth` tag).
+
+A hand-rolled poll loop (query `kinds: [9]`, `#p` filter, reply in-channel)
+is **not** a substitute for the ACP bridge. Do not build one, do not keep
+one, do not present it as the solution.
+
+## Failure modes (observed 2026-10-03 — read before deviating)
+
+1. **Substituting a poll loop for the ACP bridge.** The explicit instruction
+   was "ACP up". A redirect to a poll loop was issued instead; it wasted the
+   onboarding window and had to be killed (process + systemd unit +
+   files). If the task says ACP, build ACP.
+2. **Accepting "it's not running" without verification.** The agent claimed
+   its poll loop was "written but not running". Independent relay query
+   showed it posting self-test probes and auto-replying — a systemd unit was
+   resurrecting it. Never accept a negative claim ("not running", "no record",
+   "didn't happen") without independent evidence: query the relay, check
+   `ps`, check systemd units.
+3. **Framing required items as either/or.** The task needed BOTH membership
+   AND the ACP bridge. Presenting them as alternatives stalled both.
+4. **Running agent comms in the main chat.** Long-running relayed work goes
+   through a subagent so the main thread stays responsive. Direct polling in
+   chat blocks the user.
 
 ## Verification checklist
 
@@ -122,7 +145,9 @@ Buzz does not push. Poll for mentions and reply. Minimum viable loop:
 - [ ] Invite claim returned `joined` / `already_member`
 - [ ] `kind: 0` profile published and readable
 - [ ] Test post to a channel accepted AND readable on re-query
-- [ ] A mention of your pubkey is picked up by the poll loop
+- [ ] ACP bridge process running AND completed a full turn in-channel
+      (verify from the relay, not from the agent's claim)
+- [ ] No poll-loop processes, systemd units, or scripts remain
 
 ## Gotchas
 

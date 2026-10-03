@@ -19,8 +19,9 @@ hermes tools          # interactive: Langfuse Observability
 That path collects credentials, provisions the `langfuse` extra into the
 selected environment, and enables the plugin. Restart Hermes afterwards.
 
-Non-interactive equivalent (same code path as the interactive UI, useful in
-scripts and on headless boxes):
+Non-interactive, for scripts and headless boxes. It provisions the extra and
+enables the plugin, but does not collect credentials - set those yourself
+(below) before running it:
 
 ```bash
 hermes tools post-setup langfuse
@@ -57,14 +58,16 @@ over HTTP. The exporter has a separate dependency: the `langfuse` Python
 package inside the interpreter Hermes actually runs. A green `getHealth` with
 zero new traces points at the SDK, not at credentials.
 
-Confirm which case you have before changing anything:
+Confirm the plugin's state before changing anything:
 
 ```bash
-hermes plugins list | grep langfuse          # should show "enabled"
+hermes plugins list | grep langfuse
 ```
 
-- **shows enabled, no traces** -> SDK missing, continue below.
-- **shows disabled** -> never enabled; run `hermes tools post-setup langfuse`.
+- **shows disabled** -> it was never enabled; run `hermes tools post-setup langfuse`.
+- **shows enabled, no traces** -> the SDK is missing; apply the fix below. An
+  enabled plugin says nothing about whether traces are flowing, which is why
+  the verify step matters more than this check.
 
 ## Fix
 
@@ -109,10 +112,9 @@ What a healthy trace carries:
 | `tags` | `["hermes", "langfuse"]` |
 | `metadata.platform` | `cli`, `a2a`, `webhook` |
 | `metadata.capture_mode` | `sanitized` |
-| `metadata.model` / `metadata.provider` | e.g. `glm-5.3-flash` / `ollama-cloud` |
+| `metadata.model` / `metadata.provider` | the model and provider in use |
 
-`metadata.platform` records which ingress a turn arrived through. To confirm a
-channel, send a turn through it and read that field back.
+Every turn records its ingress in `metadata.platform`.
 
 ## Optional tuning
 

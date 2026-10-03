@@ -7,9 +7,8 @@ version: 1.0.0
 # Langfuse Observability for Hermes
 
 Traces every conversation, LLM call, and tool usage to Langfuse. The plugin ships
-bundled but is opt-in, and it **fails open** - when its SDK or credentials are
-missing the hooks no-op silently, so "no traces" is almost always a dependency
-problem rather than a config problem.
+bundled but is opt-in, and it fails open: a missing SDK or credential set
+disables tracing without failing the gateway.
 
 ## Enable
 
@@ -38,7 +37,7 @@ Set in `~/.hermes/.env` (the interactive tool writes these for you):
 ```bash
 HERMES_LANGFUSE_PUBLIC_KEY=pk-lf-...
 HERMES_LANGFUSE_SECRET_KEY=sk-lf-...
-HERMES_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # or a self-hosted URL
+HERMES_LANGFUSE_BASE_URL=https://us.cloud.langfuse.com   # region-scoped; see Verify
 ```
 
 Keep these in the environment or a secret store. They are write credentials for
@@ -86,8 +85,6 @@ A restart is not proof. Fire a real turn, then read the trace back:
 hermes chat -q "ping" --oneshot --max-turns 1
 ```
 
-`--oneshot --max-turns 1` answers and exits without an interactive session.
-
 Then confirm in Langfuse (a trace named `Hermes turn`, a minute old), or
 query the API directly:
 
@@ -104,13 +101,13 @@ region-scoped, and credentials from a `us.cloud.langfuse.com` project return
 because `.env` values are often quote-wrapped, and literal quotes in the
 Authorization header also produce 401.
 
-What a healthy trace carries, confirmed on live runs:
+What a healthy trace carries:
 
 | Field | Example value |
 |---|---|
 | `name` | `Hermes turn` |
 | `tags` | `["hermes", "langfuse"]` |
-| `metadata.platform` | `cli`, `a2a`, `webhook` - the originating platform |
+| `metadata.platform` | `cli`, `a2a`, `webhook` |
 | `metadata.capture_mode` | `sanitized` |
 | `metadata.model` / `metadata.provider` | e.g. `glm-5.3-flash` / `ollama-cloud` |
 

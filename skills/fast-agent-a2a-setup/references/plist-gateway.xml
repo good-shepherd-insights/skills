@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.ORG.fast-agent-a2a-gateway</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/USER/.local/share/uv/tools/fast-agent-mcp/bin/python</string>
+		<string>/Users/USER/.fast-agent/a2a_bearer_gateway.py</string>
+		<string>--host</string>
+		<string>127.0.0.1</string>
+		<string>--port</string>
+		<string>8000</string>
+		<string>--upstream</string>
+		<string>http://127.0.0.1:8001</string>
+		<string>--public-url</string>
+		<string>https://PUBLIC_HOSTNAME</string>
+		<string>--key-file</string>
+		<string>/Users/USER/.fast-agent/secrets/a2a-bearer-key</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/USER/Library/Logs/fast-agent-a2a-gateway-error.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/USER/Library/Logs/fast-agent-a2a-gateway.log</string>
+	<key>ThrottleInterval</key>
+	<integer>5</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/USER</string>
+</dict>
+</plist>

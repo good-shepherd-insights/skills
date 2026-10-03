@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.ORG.fast-agent-a2a</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/USER/local/bin/fast-agent</string>
+		<string>serve</string>
+		<string>a2a</string>
+		<string>--host</string>
+		<string>127.0.0.1</string>
+		<string>--port</string>
+		<string>8001</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/USER/Library/Logs/fast-agent-a2a-error.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/USER/Library/Logs/fast-agent-a2a.log</string>
+	<key>ThrottleInterval</key>
+	<integer>5</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/USER</string>
+</dict>
+</plist>

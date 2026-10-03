@@ -71,13 +71,12 @@ hermes plugins list | grep langfuse          # should show "enabled"
 
 ```bash
 hermes tools post-setup langfuse   # provisions the extra into the committed env
-hermes gateway restart             # the exporter binds at process start
+hermes gateway restart
 ```
 
 The restart matters: the exporter binds at process start, so a provisioned SDK
-without a restart traces nothing. The extra is declared in Hermes' own
-dependency set, which is why provisioning through the package manager works and
-a hand-installed copy does not.
+without one traces nothing. The extra is declared in Hermes' own dependency
+set, which is why the package manager provisions it where pip does not.
 
 ## Verify with evidence
 
@@ -87,16 +86,23 @@ A restart is not proof. Fire a real turn, then read the trace back:
 hermes chat -q "ping" --oneshot --max-turns 1
 ```
 
-`--oneshot --max-turns 1` answers and exits without an interactive session -
-these are the flags verified on the box this was written from.
+`--oneshot --max-turns 1` answers and exits without an interactive session.
 
 Then confirm in Langfuse (a trace named `Hermes turn`, a minute old), or
 query the API directly:
 
 ```bash
-curl -s -u "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" \
-  "https://cloud.langfuse.com/api/public/traces?limit=5"
+bu=$(grep '^HERMES_LANGFUSE_BASE_URL=' ~/.hermes/.env | cut -d= -f2 | tr -d '"')
+pk=$(grep '^HERMES_LANGFUSE_PUBLIC_KEY=' ~/.hermes/.env | cut -d= -f2 | tr -d '"')
+sk=$(grep '^HERMES_LANGFUSE_SECRET_KEY=' ~/.hermes/.env | cut -d= -f2 | tr -d '"')
+curl -s -u "$pk:$sk" "$bu/api/public/traces?limit=5"
 ```
+
+Read all three from `.env` rather than defaulting the host: Langfuse is
+region-scoped, and credentials from a `us.cloud.langfuse.com` project return
+401 against the global `cloud.langfuse.com` host. The `tr -d '"'` is needed
+because `.env` values are often quote-wrapped, and literal quotes in the
+Authorization header also produce 401.
 
 What a healthy trace carries, confirmed on live runs:
 
@@ -108,9 +114,8 @@ What a healthy trace carries, confirmed on live runs:
 | `metadata.capture_mode` | `sanitized` |
 | `metadata.model` / `metadata.provider` | e.g. `glm-5.3-flash` / `ollama-cloud` |
 
-`metadata.platform` settles whether a specific channel traces. Send a turn
-through an A2A endpoint, find `platform: a2a` on the resulting trace, and that
-channel's coverage is proven rather than assumed.
+`metadata.platform` records which ingress a turn arrived through. To confirm a
+channel, send a turn through it and read that field back.
 
 ## Optional tuning
 

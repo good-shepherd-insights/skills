@@ -27,13 +27,14 @@ enables the plugin, but does not collect credentials - set those yourself
 hermes tools post-setup langfuse
 ```
 
-Do NOT install the SDK with pip into the environment Hermes runs from. Hermes
-resolves dependencies through its package manager; a hand-installed package is
-invisible to it and to the next environment sync.
+Hermes resolves dependencies through its package manager. Pip-installing into the
+environment Hermes boots from leaves a package the next environment sync does
+not know about, and the exporter still cannot import it.
 
 ## Credentials
 
-Set in `~/.hermes/.env` (the interactive tool writes these for you):
+Set these in `~/.hermes/.env`. The interactive tool writes them for you; the
+non-interactive path above does not:
 
 ```bash
 HERMES_LANGFUSE_PUBLIC_KEY=pk-lf-...
@@ -77,8 +78,7 @@ hermes gateway restart
 ```
 
 The restart matters: the exporter binds at process start, so a provisioned SDK
-without one traces nothing. The extra is declared in Hermes' own dependency
-set, which is why the package manager provisions it where pip does not.
+without one traces nothing.
 
 ## Verify with evidence
 
@@ -113,8 +113,6 @@ What a healthy trace carries:
 | `metadata.platform` | `cli`, `a2a`, `webhook` |
 | `metadata.capture_mode` | `sanitized` |
 | `metadata.model` / `metadata.provider` | the model and provider in use |
-
-Every turn records its ingress in `metadata.platform`.
 
 ## Optional tuning
 

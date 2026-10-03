@@ -1,0 +1,157 @@
+---
+name: observability-langfuse
+description: Use when Langfuse tracing is silent in Hermes - no traces land despite an enabled plugin, or when setting up trace capture for the first time. Covers the SDK-missing failure mode, the PM-extra fix, and how to prove traces are arriving.
+version: 1.0.0
+---
+
+# Langfuse Observability for Hermes
+
+Traces every conversation, LLM call, and tool usage to Langfuse. The plugin ships
+bundled but is opt-in, and it fails open: a missing SDK or credential set
+disables tracing without failing the gateway.
+
+## Enable
+
+```bash
+hermes tools          # interactive: Langfuse Observability
+```
+
+That path collects credentials, provisions the `langfuse` extra into the
+selected environment, and enables the plugin. Restart Hermes afterwards.
+
+Non-interactive, for scripts and headless boxes. It provisions the extra and
+enables the plugin, but does not collect credentials - set those yourself
+(below) before running it:
+
+```bash
+hermes tools post-setup langfuse
+```
+
+Hermes resolves dependencies through its package manager. Pip-installing into the
+environment Hermes boots from leaves a package the next environment sync does
+not know about, and the exporter still cannot import it.
+
+## Credentials
+
+Set these in `~/.hermes/.env`. The interactive tool writes them for you; the
+non-interactive path above does not:
+
+```bash
+HERMES_LANGFUSE_PUBLIC_KEY=pk-lf-...
+HERMES_LANGFUSE_SECRET_KEY=sk-lf-...
+HERMES_LANGFUSE_BASE_URL=https://us.cloud.langfuse.com   # region-scoped; see Verify
+```
+
+Keep these in the environment or a secret store. They are write credentials for
+your Langfuse project - never commit them, and never paste them into a repo
+skill file.
+
+## Silent tracing: the failure signature
+
+The plugin logs one warning per gateway start and then goes quiet:
+
+```
+Langfuse plugin is enabled but the langfuse SDK is unavailable; tracing is disabled.
+```
+
+MCP calls to Langfuse still succeed in that state, because they authenticate
+over HTTP. The exporter has a separate dependency: the `langfuse` Python
+package inside the interpreter Hermes actually runs. A green `getHealth` with
+zero new traces points at the SDK, not at credentials.
+
+Confirm the plugin's state before changing anything:
+
+```bash
+hermes plugins list | grep langfuse
+```
+
+- **shows disabled** -> it was never enabled; run `hermes tools post-setup langfuse`.
+- **shows enabled, no traces** -> the SDK is missing; apply the fix below. An
+  enabled plugin says nothing about whether traces are flowing, which is why
+  the verify step matters more than this check.
+
+## Fix
+
+```bash
+hermes tools post-setup langfuse   # provisions the extra into the committed env
+hermes gateway restart
+```
+
+The restart matters: the exporter binds at process start, so a provisioned SDK
+without one traces nothing.
+
+## Verify with evidence
+
+A restart is not proof. Fire a real turn, then read the trace back:
+
+```bash
+hermes chat -q "ping" --oneshot --max-turns 1
+```
+
+Then confirm in Langfuse (a trace named `Hermes turn`, a minute old), or
+query the API directly:
+
+```bash
+bu=$(grep '^HERMES_LANGFUSE_BASE_URL=' ~/.hermes/.env | cut -d= -f2 | tr -d '"')
+pk=$(grep '^HERMES_LANGFUSE_PUBLIC_KEY=' ~/.hermes/.env | cut -d= -f2 | tr -d '"')
+sk=$(grep '^HERMES_LANGFUSE_SECRET_KEY=' ~/.hermes/.env | cut -d= -f2 | tr -d '"')
+curl -s -u "$pk:$sk" "$bu/api/public/traces?limit=5"
+```
+
+Read all three from `.env` rather than defaulting the host: Langfuse is
+region-scoped, and credentials from a `us.cloud.langfuse.com` project return
+401 against the global `cloud.langfuse.com` host. The `tr -d '"'` is needed
+because `.env` values are often quote-wrapped, and literal quotes in the
+Authorization header also produce 401.
+
+What a healthy trace carries:
+
+| Field | Example value |
+|---|---|
+| `name` | `Hermes turn` |
+| `tags` | `["hermes", "langfuse"]` |
+| `metadata.platform` | `cli`, `a2a`, `webhook` |
+| `metadata.capture_mode` | `sanitized` |
+| `metadata.model` / `metadata.provider` | the model and provider in use |
+
+## Optional tuning
+
+```bash
+HERMES_LANGFUSE_ENV=production       # environment tag
+HERMES_LANGFUSE_RELEASE=v1.0.0       # release tag
+HERMES_LANGFUSE_SAMPLE_RATE=0.5      # sample a fraction of traces
+HERMES_LANGFUSE_MAX_CHARS=12000      # per-field truncation (default 12000)
+HERMES_LANGFUSE_MAX_DEPTH=4          # nested payload depth (default 4)
+HERMES_LANGFUSE_CAPTURE=sanitized    # metadata | sanitized | full
+HERMES_LANGFUSE_DEBUG=true           # verbose plugin logging
+```
+
+### Capture modes
+
+Selected with `HERMES_LANGFUSE_CAPTURE`. Every mode captures structural data -
+IDs, roles, tool names, token usage, cost, timing. They differ in how much
+conversation *content* leaves the box.
+
+| mode | behavior |
+|---|---|
+| `metadata` | No content. Fields become shape stubs (`{"omitted": true, "type": "text", "chars": N}`). |
+| `sanitized` | Default. Content exported after secret-pattern redaction (API keys, tokens, JWTs, private keys, `password=`-style assignments) and truncation. Redaction runs before truncation. |
+| `full` | Raw content, truncated only. Traces contain whatever passed through the conversation. Explicit opt-in. |
+
+The active mode is recorded on every trace as `metadata.capture_mode`.
+
+`sanitized` is pattern-based defense in depth, not a DLP guarantee. On a shared
+Langfuse project prefer `metadata`.
+
+## Coverage
+
+- Failed model requests close their generation with `level=ERROR`, status code,
+  retry counters, and a scrubbed message.
+- Session end and finalize close still-open traces and flush queued events, so
+  interrupted or tool-only turns do not dangle.
+
+## Disable
+
+```bash
+hermes plugins disable observability/langfuse
+```

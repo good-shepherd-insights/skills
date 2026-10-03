@@ -53,11 +53,10 @@ The plugin logs one warning per gateway start and then goes quiet:
 Langfuse plugin is enabled but the langfuse SDK is unavailable; tracing is disabled.
 ```
 
-**The API being healthy does not mean tracing works.** MCP calls to Langfuse
-succeed in that state because they use HTTP auth, while the exporter needs the
-`langfuse` Python package inside the interpreter Hermes actually runs. Those
-are independent paths - a green `getHealth` with zero new traces is this bug,
-not a credential problem.
+MCP calls to Langfuse still succeed in that state, because they authenticate
+over HTTP. The exporter has a separate dependency: the `langfuse` Python
+package inside the interpreter Hermes actually runs. A green `getHealth` with
+zero new traces points at the SDK, not at credentials.
 
 Confirm which case you have before changing anything:
 
@@ -75,17 +74,21 @@ hermes tools post-setup langfuse   # provisions the extra into the committed env
 hermes gateway restart             # the exporter binds at process start
 ```
 
-This is the documented remedy, and it is the one that works: the extra is
-declared in Hermes' own dependency set, so the sync provisions it into the
-*committed* environment the gateway boots from.
+The restart matters: the exporter binds at process start, so a provisioned SDK
+without a restart traces nothing. The extra is declared in Hermes' own
+dependency set, which is why provisioning through the package manager works and
+a hand-installed copy does not.
 
 ## Verify with evidence
 
-A restart is not proof. Fire a real turn and confirm a trace arrives:
+A restart is not proof. Fire a real turn, then read the trace back:
 
 ```bash
 hermes chat -q "ping" --oneshot --max-turns 1
 ```
+
+`--oneshot --max-turns 1` answers and exits without an interactive session -
+these are the flags verified on the box this was written from.
 
 Then confirm in Langfuse (a trace named `Hermes turn`, a minute old), or
 query the API directly:
@@ -105,10 +108,9 @@ What a healthy trace carries, confirmed on live runs:
 | `metadata.capture_mode` | `sanitized` |
 | `metadata.model` / `metadata.provider` | e.g. `glm-5.3-flash` / `ollama-cloud` |
 
-`metadata.platform` is the field to check when you need to prove a specific
-channel traces. Sending a turn through an A2A endpoint and finding
-`platform: a2a` on the resulting trace is the end-to-end proof; do not assume
-it, read it back.
+`metadata.platform` settles whether a specific channel traces. Send a turn
+through an A2A endpoint, find `platform: a2a` on the resulting trace, and that
+channel's coverage is proven rather than assumed.
 
 ## Optional tuning
 
@@ -124,10 +126,9 @@ HERMES_LANGFUSE_DEBUG=true           # verbose plugin logging
 
 ### Capture modes
 
-`metadata` and `sanitized` and `full`, selected with `HERMES_LANGFUSE_CAPTURE`.
-Structural data - IDs, roles, tool names, token usage, cost, timing - is
-captured in every mode; the modes differ only in how much conversation
-*content* leaves the box.
+Selected with `HERMES_LANGFUSE_CAPTURE`. Every mode captures structural data -
+IDs, roles, tool names, token usage, cost, timing. They differ in how much
+conversation *content* leaves the box.
 
 | mode | behavior |
 |---|---|
